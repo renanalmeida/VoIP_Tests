@@ -3,6 +3,8 @@
 #include <android/log.h>
 #include <gst/gst.h>
 #include <pthread.h>
+#include <stdio.h>
+
 
 GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_DEFAULT debug_category
@@ -211,7 +213,9 @@ static void gst_init_audio_send(JNIEnv *env, jobject thiz,  jstring ip, jstring 
     const jbyte *char_ip = (*env)->GetStringUTFChars(env, ip, NULL);
     const jbyte *char_port = (*env)->GetStringUTFChars(env, port, NULL);
     GST_DEBUG("gst_init_audio_send");
-    sprintf(custon_pipeline, "openslessrc ! audioconvert ! audioresample ! speexenc ! rtpspeexpay pt=97 ! udpsink host=%s port=%s", char_ip, char_port);
+    //sprintf(custon_pipeline, "openslessrc ! audioconvert ! audioresample ! speexenc ! rtpspeexpay pt=97 ! udpsink host=%s port=%s", char_ip, char_port);
+    sprintf(custon_pipeline, "openslessrc ! audioconvert ! audioresample ! alawenc ! rtppcmapay pt=8 ! udpsink host=%s port=%s", char_ip, char_port);
+
     GST_DEBUG("Setting message to: %s", custon_pipeline);
     gst_native_init(env,thiz);
 }
@@ -221,6 +225,27 @@ static void gst_init_audio_receive(JNIEnv *env, jobject thiz, jstring port) {
     const jbyte *char_port = (*env)->GetStringUTFChars(env, port, 0);
     sprintf(custon_pipeline, "udpsrc port=%s caps=\"application/x-rtp, media=(string)audio,clock-rate=(int)8000,encoding-name=(string)SPEEX,encoding-params=(string)1,octet-align=(string)1\"  ! rtpspeexdepay ! speexdec ! audioconvert ! audioresample ! autoaudiosink",  char_port);
     GST_DEBUG("Setting message to: %s", custon_pipeline);
+    gst_native_init(env,thiz);
+}
+
+static void gst_init_with_sdp(JNIEnv *env, jobject thiz, jstring sdp) {
+    __android_log_print(ANDROID_LOG_ERROR, "tutorial-2",
+                        "gst_init_with_sdp");
+    const jbyte *char_sdp = (*env)->GetStringUTFChars(env, sdp, NULL);
+
+     FILE* file = fopen("/sdcard/stream.sdp","w+");
+       if (file != NULL)
+       {
+            fputs(char_sdp, file);
+            fflush(file);
+           fclose(file);
+       }else{
+            GST_DEBUG("file null!");
+        }
+
+   /// custon_pipeline =  "playbin uri=/sdcard/stream.sdp";
+    sprintf(custon_pipeline, "filesrc location=/sdcard/stream.sdp ! sdpdemux ! decodebin ! autoaudiosink", char_sdp);
+   // sprintf(custon_pipeline, "playbin uri=file:///sdcard/stream.sdp", char_sdp);
     gst_native_init(env,thiz);
 }
 
@@ -282,6 +307,7 @@ static JNINativeMethod native_methods[] = {
         {"nativePlay",      "()V", (void *) gst_native_play},
         {"nativeInitAudioSender", "(Ljava/lang/String;Ljava/lang/String;)V", (void *) gst_init_audio_send},
         {"nativeInitAudioReceiver", "(Ljava/lang/String;)V", (void *) gst_init_audio_receive},
+        {"nativeInitWithSDP", "(Ljava/lang/String;)V", (void *) gst_init_with_sdp},
         {"nativePause",     "()V", (void *) gst_native_pause},
         {"nativeClassInit", "()Z", (void *) gst_native_class_init}
 };

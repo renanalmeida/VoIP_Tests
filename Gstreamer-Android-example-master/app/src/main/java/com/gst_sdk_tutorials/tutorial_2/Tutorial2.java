@@ -14,19 +14,22 @@ import org.freedesktop.gstreamer.GStreamer;
 
 
 public class Tutorial2 extends Activity {
+
     private native void nativeInit();     // Initialize native code, build pipeline, etc
 
     private native void nativeFinalize(); // Destroy pipeline and shutdown native code
 
     private native void nativePlay();     // Set pipeline to PLAYING
 
-    private native void nativeInitAudioSender(String remoteIp, String remotePort);
-
-    private native void nativeInitAudioReceiver(String remotePort);
-
     private native void nativePause();    // Set pipeline to PAUSED
 
     private static native boolean nativeClassInit(); // Initialize native class: cache Method IDs for callbacks
+
+    private native void nativeInitAudioSender(String remoteIp, String remotePort);
+
+    private native void nativeInitWithSDP(String sdp);
+
+    private native void nativeInitAudioReceiver(String port);
 
     private long native_custom_data;      // Native code will use this to keep private data
 
@@ -37,6 +40,7 @@ public class Tutorial2 extends Activity {
     private Button buttonSendAudio;
     private Button buttonjoinAudio;
     private Button buttonStop;
+
 
     // Called when the activity is first created.
     @Override
@@ -64,8 +68,29 @@ public class Tutorial2 extends Activity {
             String port = portEditText.getText().toString();
 
             public void onClick(View v) {
+                Log.w("Tutorial2", "button join: onClick");
                 is_playing_desired = true;
-                nativeInitAudioReceiver(port);
+                String sdp =
+                        "v=0\n" +
+                                "o=Renan IN 2890844526 2890844526 IP4 192.168.130.207\n" +
+                                "s=-\n" +
+                                "c=IN IP4 192.168.130.207\n" +
+                                "t=0 0\n" +
+                                "m=audio " + port + " RTP/AVP 99\n" +
+                                "a=rtpmap:99 speex/8000\n" +
+                                "a=fmtp:99 mode=4";
+
+                String sdp2 = "v=0\n" +
+                        "o=NoOpSipuadaPlug-in 0 0 IN IP4 192.168.130.207\n" +
+                        "s=-\n" +
+                        "c=IN IP4 192.168.130.207\n" +
+                        "t=0 0\n" +
+                        "m=audio " + port + " RTP/AVP 8\n" +
+                        "a=rtpmap:8 PCMA/8000\n" +
+                        "a=sendrecv\n" +
+                        "a=rtcp:38219";
+
+                nativeInitWithSDP(sdp2);
             }
         });
 
