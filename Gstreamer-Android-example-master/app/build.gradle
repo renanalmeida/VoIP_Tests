@@ -1,4 +1,4 @@
-apply plugin: 'com.android.application'
+apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 19
@@ -12,7 +12,6 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.gst_sdk_tutorials.tutorial_2"
         minSdkVersion 9
         targetSdkVersion 14
 
@@ -55,8 +54,8 @@ task ndkLibsToJar(type: Zip, dependsOn: 'ndkBuild', description: 'Create a JAR o
 
 // Build native code using mk files like on Eclipse
 task ndkBuild(type: Exec, description: 'Compile JNI source via NDK') {
-    def ndkDir = project.plugins.findPlugin('com.android.application').getNdkFolder()
-    println(project.plugins.findPlugin('com.android.application').getNdkFolder())
+    def ndkDir = project.plugins.findPlugin('com.android.library').getNdkFolder()
+    println(project.plugins.findPlugin('com.android.library').getNdkFolder())
 
     commandLine "$ndkDir/ndk-build",
             'NDK_PROJECT_PATH=build',

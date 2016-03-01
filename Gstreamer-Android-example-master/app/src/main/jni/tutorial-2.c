@@ -220,6 +220,15 @@ static void gst_init_audio_send(JNIEnv *env, jobject thiz,  jstring ip, jstring 
     gst_native_init(env,thiz);
 }
 
+static void gst_init_pipeline(JNIEnv *env, jobject thiz,  jstring pipeline) {
+    GST_DEBUG("gst_init_audio_send");
+    const jbyte *char_pipeline = (*env)->GetStringUTFChars(env, pipeline, NULL);
+    GST_DEBUG("gst_init_audio_send");
+    sprintf(custon_pipeline, "%s", char_pipeline);
+    GST_DEBUG("Setting message to: %s", char_pipeline);
+    gst_native_init(env,thiz);
+}
+
 static void gst_init_audio_receive(JNIEnv *env, jobject thiz, jstring port) {
     GST_DEBUG("gst_init_audio_receive");
     const jbyte *char_port = (*env)->GetStringUTFChars(env, port, 0);
@@ -307,6 +316,7 @@ static JNINativeMethod native_methods[] = {
         {"nativePlay",      "()V", (void *) gst_native_play},
         {"nativeInitAudioSender", "(Ljava/lang/String;Ljava/lang/String;)V", (void *) gst_init_audio_send},
         {"nativeInitAudioReceiver", "(Ljava/lang/String;)V", (void *) gst_init_audio_receive},
+        {"nativeInitPipeline", "(Ljava/lang/String;)V", (void *) gst_init_pipeline},
         {"nativeInitWithSDP", "(Ljava/lang/String;)V", (void *) gst_init_with_sdp},
         {"nativePause",     "()V", (void *) gst_native_pause},
         {"nativeClassInit", "()Z", (void *) gst_native_class_init}

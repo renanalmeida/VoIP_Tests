@@ -1,6 +1,7 @@
 package com.gst_sdk_tutorials.tutorial_2;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -13,7 +14,9 @@ import android.widget.Toast;
 import org.freedesktop.gstreamer.GStreamer;
 
 
-public class Tutorial2 extends Activity {
+public class Tutorial2 {
+
+    private static final String TAG = "Tutorial";
 
     private native void nativeInit();     // Initialize native code, build pipeline, etc
 
@@ -27,6 +30,8 @@ public class Tutorial2 extends Activity {
 
     private native void nativeInitAudioSender(String remoteIp, String remotePort);
 
+    private native void nativeInitPipeline(String pipiline);
+
     private native void nativeInitWithSDP(String sdp);
 
     private native void nativeInitAudioReceiver(String port);
@@ -35,115 +40,29 @@ public class Tutorial2 extends Activity {
 
     private boolean is_playing_desired;   // Whether the user asked to go to PLAYING
 
-    private EditText remoteIpEditText;
-    private EditText portEditText;
-    private Button buttonSendAudio;
-    private Button buttonjoinAudio;
-    private Button buttonStop;
 
-
-    // Called when the activity is first created.
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
+    public Tutorial2(Context context) {
         // Initialize GStreamer and warn if it fails
         try {
-            GStreamer.init(this);
+            GStreamer.init(context);
         } catch (Exception e) {
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
-            finish();
             return;
         }
-
-        setContentView(R.layout.main);
-
-        remoteIpEditText = (EditText) findViewById(R.id.et_remote_ip);
-        portEditText = (EditText) findViewById(R.id.et_remote_port);
-        buttonSendAudio = (Button) findViewById(R.id.bt_send_audio);
-        buttonjoinAudio = (Button) findViewById(R.id.bt_join);
-        buttonStop = (Button) findViewById(R.id.bt_stop);
-
-        buttonjoinAudio.setOnClickListener(new OnClickListener() {
-            String port = portEditText.getText().toString();
-
-            public void onClick(View v) {
-                Log.w("Tutorial2", "button join: onClick");
-                is_playing_desired = true;
-                String sdp =
-                        "v=0\n" +
-                                "o=Renan IN 2890844526 2890844526 IP4 192.168.130.207\n" +
-                                "s=-\n" +
-                                "c=IN IP4 192.168.130.207\n" +
-                                "t=0 0\n" +
-                                "m=audio " + port + " RTP/AVP 99\n" +
-                                "a=rtpmap:99 speex/8000\n" +
-                                "a=fmtp:99 mode=4";
-
-                String sdp2 = "v=0\n" +
-                        "o=NoOpSipuadaPlug-in 0 0 IN IP4 192.168.130.207\n" +
-                        "s=-\n" +
-                        "c=IN IP4 192.168.130.207\n" +
-                        "t=0 0\n" +
-                        "m=audio " + port + " RTP/AVP 8\n" +
-                        "a=rtpmap:8 PCMA/8000\n" +
-                        "a=sendrecv\n" +
-                        "a=rtcp:38219";
-
-                nativeInitWithSDP(sdp2);
-            }
-        });
-
-        buttonSendAudio.setOnClickListener(new OnClickListener() {
-            String port = portEditText.getText().toString();
-            String ip = remoteIpEditText.getText().toString();
-
-            public void onClick(View v) {
-                is_playing_desired = true;
-                nativeInitAudioSender(ip, port);
-            }
-        });
-
-        buttonStop.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                is_playing_desired = false;
-                nativePause();
-            }
-        });
-
-        if (savedInstanceState != null) {
-            is_playing_desired = savedInstanceState.getBoolean("playing");
-            Log.i("GStreamer", "Activity created. Saved state is playing:" + is_playing_desired);
-        } else {
-            is_playing_desired = false;
-            Log.i("GStreamer", "Activity created. There is no saved state, playing: false");
-        }
-
-        // Start with disabled buttons, until native code is initialized
-//        this.findViewById(R.id.button_play).setEnabled(false);
-//        this.findViewById(R.id.button_stop).setEnabled(false);
-
         nativeInit();
     }
 
-    protected void onSaveInstanceState(Bundle outState) {
-        Log.d("GStreamer", "Saving state, playing:" + is_playing_desired);
-        outState.putBoolean("playing", is_playing_desired);
+    public void sendAudio(String remoteIp, String remotePort){
+        nativeInitAudioSender(remoteIp, remotePort);
     }
 
-    protected void onDestroy() {
+    protected void destroy() {
         nativeFinalize();
-        super.onDestroy();
+
     }
 
     // Called from native code. This sets the content of the TextView from the UI thread.
     private void setMessage(final String message) {
-        final TextView tv = (TextView) this.findViewById(R.id.tv_message);
-        runOnUiThread(new Runnable() {
-            public void run() {
-                tv.setText(message);
-            }
-        });
+        Log.w(TAG, "setMessage:" + message);
     }
 
     // Called from native code. Native code calls this once it has created its pipeline and
@@ -156,14 +75,19 @@ public class Tutorial2 extends Activity {
         } else {
             nativePause();
         }
-        // Re-enable buttons, now that GStreamer is initialized
-        final Activity activity = this;
-        runOnUiThread(new Runnable() {
-            public void run() {
-//                activity.findViewById(R.id.button_play).setEnabled(true);
-//                activity.findViewById(R.id.button_stop).setEnabled(true);
-            }
-        });
+    }
+
+    public void startVOIPStreaming(int remoteRtpPort, String remoteIp, int localPort, int codec) {
+        Log.i(TAG, "Starting streaming: " + remoteIp + "/" + remoteRtpPort);
+        String senderPipeline;
+        String receiverPipeline;
+        if (codec == 97) {
+            receiverPipeline = " udpsrc port=" + localPort + " caps=\"application/x-rtp, media=(string)audio,clock-rate=(int)8000,encoding-name=(string)SPEEX,encoding-params=(string)1,octet-align=(string)1\"  ! rtpspeexdepay ! speexdec ! audioconvert ! audioresample ! autoaudiosink ! openslessrc ! audioconvert ! audioresample ! speexenc ! rtpspeexpay pt=97 ! udpsink host=" + remoteIp + " port=" + remoteRtpPort;
+            nativeInitPipeline(receiverPipeline);
+            senderPipeline = "openslessrc ! audioconvert ! audioresample ! speexenc ! rtpspeexpay pt=97 ! udpsink host=" + remoteIp + " port=" + remoteRtpPort;
+            nativeInitPipeline(senderPipeline);
+        } else {
+        }
     }
 
     static {
@@ -172,4 +96,7 @@ public class Tutorial2 extends Activity {
         nativeClassInit();
     }
 
+    public void stopStreaming() {
+
+    }
 }
