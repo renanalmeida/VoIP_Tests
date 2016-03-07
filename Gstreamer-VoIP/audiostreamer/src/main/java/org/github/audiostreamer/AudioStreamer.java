@@ -32,8 +32,6 @@ public class AudioStreamer {
 
     private native void nativeInitPipeline(String pipeline);
 
-    private native void nativeInitWithSDP(String sdp);
-
     private native void nativeInitAudioReceiver(String port);
 
     private native void nativeEnableSpeakers();
