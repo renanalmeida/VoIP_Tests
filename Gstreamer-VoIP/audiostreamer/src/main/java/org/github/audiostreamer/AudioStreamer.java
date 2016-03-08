@@ -28,11 +28,7 @@ public class AudioStreamer {
 
     private static native boolean nativeClassInit(); // Initialize native class: cache Method IDs for callbacks
 
-    private native void nativeInitAudioSender(String remoteIp, String remotePort);
-
     private native void nativeInitPipeline(String pipeline);
-
-    private native void nativeInitAudioReceiver(String port);
 
     private native void nativeEnableSpeakers();
 
@@ -50,16 +46,6 @@ public class AudioStreamer {
         } catch (Exception e) {
             return;
         }
-    }
-
-    public void sendAudio(String remoteIp, String remotePort){
-        is_playing_desired = true;
-        nativeInitAudioSender(remoteIp, remotePort);
-    }
-
-    public void receveAudio( String remotePort) {
-        is_playing_desired = true;
-        nativeInitAudioReceiver(remotePort);
     }
 
 

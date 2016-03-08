@@ -31,7 +31,20 @@ public class MainActivity extends Activity {
     private CheckBox cbSpeakesOn;
     private CheckBox cbMute;
 
-    @Override
+    public enum Codecs {
+        SPEEX(97), PCMA(8);
+        private final int payloadType;
+        private Codecs(int pt){
+            this.payloadType=pt;
+        }
+        public int getPayloadType(){
+            return payloadType;
+        }
+    }
+
+    private Codecs codec;
+
+        @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -40,6 +53,7 @@ public class MainActivity extends Activity {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
+
         audioCallManager = new AudioCallManager(getApplicationContext());
         remoteIpEditText = (EditText) findViewById(R.id.et_remote_ip);
         portEditText = (EditText) findViewById(R.id.et_remote_port);
@@ -51,14 +65,13 @@ public class MainActivity extends Activity {
         cbMute = (CheckBox) findViewById(R.id.cb_mute);
         rbSpeex.setChecked(true);
         cbSpeakesOn.setChecked(false);
+        codec = Codecs.SPEEX;
 
         rbSpeex.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    int port = new Integer(portEditText.getText().toString());
-                    String ip = remoteIpEditText.getText().toString();
-                    audioCallManager.startVOIPStreaming(port, ip, port, 97);
+                    codec = Codecs.SPEEX;
                 }
             }
         });
@@ -67,9 +80,7 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    int port = new Integer(portEditText.getText().toString());
-                    String ip = remoteIpEditText.getText().toString();
-                    audioCallManager.startVOIPStreaming(port, ip, port, 8);
+                    codec = Codecs.PCMA;
                 }
             }
         });
@@ -105,11 +116,9 @@ public class MainActivity extends Activity {
                         Log.i(TAG, "onClick, participantAdded:");
                         int port = new Integer(portEditText.getText().toString());
                         String ip = remoteIpEditText.getText().toString();
-                        audioCallManager.startVOIPStreaming(port, ip, port, 97);
-
+                        audioCallManager.startVOIPStreaming(port, ip, port, codec.getPayloadType());
                     }
                 }).start();
-
             }
         });
 

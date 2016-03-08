@@ -193,7 +193,6 @@ static void *app_function(void *userdata) {
     return NULL;
 }
 
-
 /* Instruct the native code to create its internal data structure, pipeline and thread */
 static void gst_native_init(JNIEnv *env, jobject thiz) {
     CustomData *data = g_new0(CustomData, 1);
@@ -204,51 +203,6 @@ static void gst_native_init(JNIEnv *env, jobject thiz) {
     data->app = (*env)->NewGlobalRef(env, thiz);
     GST_DEBUG("Created GlobalRef for app object at %p", data->app);
     pthread_create(&gst_app_thread, NULL, &app_function, data);
-}
-
-
-static void gst_init_audio_send(JNIEnv *env, jobject thiz, jstring ip, jstring port) {
-    GST_DEBUG("gst_init_audio_send");
-    const jbyte *char_ip = (*env)->GetStringUTFChars(env, ip, NULL);
-    const jbyte *char_port = (*env)->GetStringUTFChars(env, port, NULL);
-    GST_DEBUG("gst_init_audio_send");
-    //sprintf(custon_pipeline, "openslessrc ! audioconvert ! audioresample ! speexenc ! rtpspeexpay pt=97 ! udpsink host=%s port=%s", char_ip, char_port);
-    sprintf(custon_pipeline,
-            "openslessrc ! audioconvert ! audioresample ! alawenc ! rtppcmapay pt=8 ! udpsink host=%s port=%s",
-            char_ip, char_port);
-
-    GST_DEBUG("Setting message to: %s", custon_pipeline);
-
-    GstElement *audiosource, *audioconv, *audiores, *audioenc, *audiopay, *udpsink_sender;
-    my_pipeline = gst_pipeline_new("my-pipeline");
-
-    audiosource = gst_element_factory_make("openslessrc", "audiosource");
-    g_assert(audiosource);
-    audioconv = gst_element_factory_make("audioconvert", "audioconv");
-    g_assert(audioconv);
-    audiores = gst_element_factory_make("audioresample", "audiores");
-    g_assert(audiores);
-    audioenc = gst_element_factory_make("speexenc", "audioenc");
-    g_assert(audioenc);
-    audiopay = gst_element_factory_make("rtpspeexpay", "audiopay");
-    g_assert(audiopay);
-    g_object_set(G_OBJECT(audiopay), "pt", 97, NULL);
-    udpsink_sender = gst_element_factory_make("udpsink", "udpsink_sender");
-    g_assert(udpsink_sender);
-
-    g_object_set(G_OBJECT(udpsink_sender), "host", char_ip, NULL);
-    g_object_set(G_OBJECT(udpsink_sender), "port", 16400, NULL);
-    g_object_set(G_OBJECT(udpsink_sender), "sync", FALSE, NULL);
-
-    /* add capture and payloading to the pipeline and link */
-    gst_bin_add_many(GST_BIN(my_pipeline), audiosource, audioconv, audiores, audioenc, audiopay,
-                     udpsink_sender, NULL);
-    if (!gst_element_link_many(audiosource, audioconv, audiores, audioenc, audiopay, udpsink_sender,
-                               NULL)) {
-        g_error("Failed to link:  audiosource,audioconv ,audiores,audioenc,audiopay,udpsink_sender payloader");
-    }
-
-    gst_native_init(env, thiz);
 }
 
 static void gst_init_pipeline(JNIEnv *env, jobject thiz, jstring pipeline) {
@@ -265,7 +219,6 @@ static void gst_init_pipeline(JNIEnv *env, jobject thiz, jstring pipeline) {
     GST_DEBUG("Setting message to: %s", char_pipeline);
     gst_native_init(env, thiz);
 }
-
 
 static void gst_enableSpeakers(JNIEnv *env, jobject thiz) {
     typedef enum {
@@ -290,58 +243,6 @@ static void gst_enableSpeakers(JNIEnv *env, jobject thiz) {
     openslessink = gst_bin_get_by_name_recurse_up(GST_BIN(my_pipeline), "openslessink");
     g_assert(openslessink);
     g_object_set(G_OBJECT(openslessink), "stream-type", GST_OPENSLES_STREAM_TYPE_MEDIA, NULL);
-}
-
-
-static void gst_init_audio_receive(JNIEnv *env, jobject thiz, jstring port) {
-    GST_DEBUG("gst_init_audio_receive");
-    const jbyte *char_port = (*env)->GetStringUTFChars(env, port, 0);
-    sprintf(custon_pipeline,
-            "udpsrc port=%s caps=\"application/x-rtp, media=(string)audio,clock-rate=(int)8000,encoding-name=(string)SPEEX,encoding-params=(string)1,octet-align=(string)1\"  ! rtpspeexdepay ! speexdec ! audioconvert ! audioresample !  openalsink",
-            char_port);
-    GST_DEBUG("Setting message to: %s", custon_pipeline);
-
-    GstElement *udpsrc_receiver, *filter, *rtpjitter, *audiodepay, *audiodec, *audioconv_dec, *audiores_dec, *autoaudiosink_dec;
-    my_pipeline = gst_pipeline_new("my-pipeline");
-
-    udpsrc_receiver = gst_element_factory_make("udpsrc", "udpsrc_receiver");
-    g_assert(udpsrc_receiver);
-    g_object_set(G_OBJECT(udpsrc_receiver), "port", 16400, NULL);
-
-    GstCaps *caps;
-    caps = gst_caps_new_simple("application/x-rtp",
-                               "media", G_TYPE_STRING, "audio",
-                               "clock-rate", G_TYPE_INT, 8000,
-                               "encoding-name", G_TYPE_STRING, "SPEEX",
-                               "encoding-params", G_TYPE_STRING, "1",
-                               "octet-align", G_TYPE_STRING, "1",
-                               NULL);
-
-    g_object_set(G_OBJECT(udpsrc_receiver), "caps", caps, NULL);
-    gst_caps_unref(caps);
-
-    rtpjitter = gst_element_factory_make("rtpjitterbuffer", " rtpjitter");
-    g_assert(rtpjitter);
-    audiodepay = gst_element_factory_make("rtpspeexdepay", "audiodepay");
-    g_assert(audiodepay);
-    audiodec = gst_element_factory_make("speexdec", "audiodec");
-    g_assert(audiodec);
-    audioconv_dec = gst_element_factory_make("audioconvert", "audioconv_dec");
-    g_assert(audioconv_dec);
-    audiores_dec = gst_element_factory_make("audioresample", "audiores_dec");
-    g_assert(audiores_dec);
-    autoaudiosink_dec = gst_element_factory_make("autoaudiosink", "autoaudiosink_dec");
-    g_assert(autoaudiosink_dec);
-
-    gst_bin_add_many(GST_BIN(my_pipeline), udpsrc_receiver, audiodepay, audiodec, audioconv_dec,
-                     audiores_dec, autoaudiosink_dec, NULL);
-
-    if (!gst_element_link_many(udpsrc_receiver, audiodepay, audiodec, audioconv_dec, audiores_dec,
-                               autoaudiosink_dec, NULL)) {
-        g_error("Failed to link udpsrc_receiver, audiodepay, audiodec, audioconv_dec, audiores_dec, autoaudiosink_dec payloader");
-    }
-
-    gst_native_init(env, thiz);
 }
 
 /* Quit the main loop, remove the native thread and free resources */
@@ -399,8 +300,6 @@ static JNINativeMethod native_methods[] = {
         {"nativeInit",              "()V",                                     (void *) gst_native_init},
         {"nativeFinalize",          "()V",                                     (void *) gst_native_finalize},
         {"nativePlay",              "()V",                                     (void *) gst_native_play},
-        {"nativeInitAudioSender",   "(Ljava/lang/String;Ljava/lang/String;)V", (void *) gst_init_audio_send},
-        {"nativeInitAudioReceiver", "(Ljava/lang/String;)V",                   (void *) gst_init_audio_receive},
         {"nativeInitPipeline",      "(Ljava/lang/String;)V",                   (void *) gst_init_pipeline},
         {"nativePause",             "()V",                                     (void *) gst_native_pause},
         {"nativeEnableSpeakers",    "()V",                                     (void *) gst_enableSpeakers},
