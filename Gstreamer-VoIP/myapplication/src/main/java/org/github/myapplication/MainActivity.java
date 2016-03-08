@@ -56,7 +56,9 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-
+                    int port = new Integer(portEditText.getText().toString());
+                    String ip = remoteIpEditText.getText().toString();
+                    audioCallManager.startVOIPStreaming(port, ip, port, 97);
                 }
             }
         });
@@ -65,7 +67,9 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-
+                    int port = new Integer(portEditText.getText().toString());
+                    String ip = remoteIpEditText.getText().toString();
+                    audioCallManager.startVOIPStreaming(port, ip, port, 8);
                 }
             }
         });
