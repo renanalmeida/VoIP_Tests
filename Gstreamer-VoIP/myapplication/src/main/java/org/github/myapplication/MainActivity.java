@@ -11,40 +11,25 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.RadioButton;
 
-import org.github.audiostreamer.AudioCallManager;
-
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.util.Collections;
-import java.util.List;
+import org.github.audiostreamer.AudioManager;
 
 public class MainActivity extends Activity {
 
     private static final String TAG = "MainActivity";
+
     private EditText remoteIpEditText;
     private EditText portEditText;
     private Button buttonCall;
     private Button buttonEndCall;
     private RadioButton rbSpeex;
     private RadioButton rbPCM;
-    private AudioCallManager audioCallManager;
+    private AudioManager audioManager;
     private CheckBox cbSpeakesOn;
     private CheckBox cbMute;
 
-    public enum Codecs {
-        SPEEX(97), PCMA(8);
-        private final int payloadType;
-        private Codecs(int pt){
-            this.payloadType=pt;
-        }
-        public int getPayloadType(){
-            return payloadType;
-        }
-    }
+    private int codecPayloadType;
 
-    private Codecs codec;
-
-        @Override
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -54,7 +39,7 @@ public class MainActivity extends Activity {
             StrictMode.setThreadPolicy(policy);
         }
 
-        audioCallManager = new AudioCallManager(getApplicationContext());
+        audioManager = new AudioManager(getApplicationContext());
         remoteIpEditText = (EditText) findViewById(R.id.et_remote_ip);
         portEditText = (EditText) findViewById(R.id.et_remote_port);
         buttonCall = (Button) findViewById(R.id.bt_call);
@@ -65,13 +50,13 @@ public class MainActivity extends Activity {
         cbMute = (CheckBox) findViewById(R.id.cb_mute);
         rbSpeex.setChecked(true);
         cbSpeakesOn.setChecked(false);
-        codec = Codecs.SPEEX;
+        codecPayloadType = AudioManager.SPEEX;
 
         rbSpeex.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    codec = Codecs.SPEEX;
+                    codecPayloadType = AudioManager.SPEEX;
                 }
             }
         });
@@ -80,7 +65,7 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    codec = Codecs.PCMA;
+                    codecPayloadType = AudioManager.PCMA;
                 }
             }
         });
@@ -89,9 +74,9 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    audioCallManager.mute(true);
+                    audioManager.mute(true);
                 } else {
-                    audioCallManager.mute(false);
+                    audioManager.mute(false);
                 }
             }
         });
@@ -100,9 +85,9 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    audioCallManager.setSpeakersOn(true);
+                    audioManager.setSpeakersOn(true);
                 } else {
-                    audioCallManager.setSpeakersOn(false);
+                    audioManager.setSpeakersOn(false);
                 }
             }
         });
@@ -116,7 +101,7 @@ public class MainActivity extends Activity {
                         Log.i(TAG, "onClick, participantAdded:");
                         int port = new Integer(portEditText.getText().toString());
                         String ip = remoteIpEditText.getText().toString();
-                        audioCallManager.startVOIPStreaming(port, ip, port, codec.getPayloadType());
+                        audioManager.startVOIPStreaming(port, ip, port, codecPayloadType);
                     }
                 }).start();
             }
@@ -125,43 +110,18 @@ public class MainActivity extends Activity {
         buttonEndCall.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                audioCallManager.stop();
+                audioManager.stopStreaming();
             }
         });
 
     }
 
-    /**
-     * Get IP address from first non-localhost interface
-     *
-     * @param useIPv4 true=return ipv4, false=return ipv6
-     * @return address or empty string
-     */
-    public static String getIPAddress(boolean useIPv4) {
-        try {
-            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface netWorkInterface : interfaces) {
-                List<InetAddress> addressList = Collections.list(netWorkInterface.getInetAddresses());
-                for (InetAddress address : addressList) {
-                    if (!address.isLoopbackAddress()) {
-                        String stringAddress = address.getHostAddress();
-                        boolean isIPv4 = stringAddress.indexOf(':') < 0;
-
-                        if (useIPv4) {
-                            if (isIPv4)
-                                return stringAddress;
-                        } else {
-                            if (!isIPv4) {
-                                int delim = stringAddress.indexOf('%'); // drop ip6 zone suffix
-                                return delim < 0 ? stringAddress.toUpperCase() : stringAddress.substring(0, delim).toUpperCase();
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(audioManager != null){
+            audioManager.stopStreaming();
+            audioManager.release();
         }
-        return "";
     }
 }

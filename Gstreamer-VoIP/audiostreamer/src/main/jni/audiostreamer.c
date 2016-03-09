@@ -132,9 +132,13 @@ static void check_initialization_complete(CustomData *data) {
     JNIEnv *env = get_jni_env();
     if (!data->initialized && data->main_loop) {
         GST_DEBUG("Initialization complete, notifying application. main_loop:%p", data->main_loop);
+        __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                            "Initialization complete, notifying application.");
         (*env)->CallVoidMethod(env, data->app, on_gstreamer_initialized_method_id);
         if ((*env)->ExceptionCheck(env)) {
             GST_ERROR("Failed to call Java method");
+            __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                                "Failed to call Java method.");
             (*env)->ExceptionClear(env);
         }
         data->initialized = TRUE;
@@ -143,6 +147,8 @@ static void check_initialization_complete(CustomData *data) {
 
 /* Main method for the native code. This is executed on its own thread. */
 static void *app_function(void *userdata) {
+    if (!my_pipeline) return;
+
     JavaVMAttachArgs args;
     GstBus *bus;
     CustomData *data = (CustomData *) userdata;
@@ -156,14 +162,6 @@ static void *app_function(void *userdata) {
     g_main_context_push_thread_default(data->context);
 
     data->pipeline = my_pipeline;
-//    //data->pipeline = gst_parse_launch(custon_pipeline, &error);
-//    if (error) {
-//        gchar *message = g_strdup_printf("Unable to build pipeline: %s", error->message);
-//        g_clear_error(&error);
-//        set_ui_message(message, data);
-//        g_free(message);
-//        return NULL;
-//    }
 
     /* Instruct the bus to emit signals for each received message, and connect to the interesting signals */
     bus = gst_element_get_bus(data->pipeline);
@@ -195,10 +193,12 @@ static void *app_function(void *userdata) {
 
 /* Instruct the native code to create its internal data structure, pipeline and thread */
 static void gst_native_init(JNIEnv *env, jobject thiz) {
+    __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                        "gst_native_init.");
     CustomData *data = g_new0(CustomData, 1);
     SET_CUSTOM_DATA (env, thiz, custom_data_field_id, data);
     GST_DEBUG_CATEGORY_INIT(debug_category, "audiostreamer", 0, "Gstreamer voip");
-    gst_debug_set_threshold_for_name("tutorial-2", GST_LEVEL_DEBUG);
+    gst_debug_set_threshold_for_name("audiostreamer", GST_LEVEL_DEBUG);
     GST_DEBUG("Created CustomData at %p", data);
     data->app = (*env)->NewGlobalRef(env, thiz);
     GST_DEBUG("Created GlobalRef for app object at %p", data->app);
@@ -220,45 +220,30 @@ static void gst_init_pipeline(JNIEnv *env, jobject thiz, jstring pipeline) {
     gst_native_init(env, thiz);
 }
 
-static void gst_enableSpeakers(JNIEnv *env, jobject thiz) {
-    typedef enum {
-        GST_OPENSLES_STREAM_TYPE_VOICE,
-        GST_OPENSLES_STREAM_TYPE_MEDIA,
-        GST_OPENSLES_STREAM_TYPE_NONE = -1,
-    } GstOpenSLESStreamType;
-    static const GEnumValue values[] = {
-            {GST_OPENSLES_STREAM_TYPE_VOICE,
-                    "GST_OPENSLES_STREAM_TYPE_VOICE",        "voice"},
-
-            {GST_OPENSLES_STREAM_TYPE_MEDIA,
-                    "GST_OPENSLES_STREAM_TYPE_MEDIA",        "media"},
-            {GST_OPENSLES_STREAM_TYPE_NONE,
-                    "GST_OPENSLES_STREAM_TYPE_NONE",         "none"},
-            {0,     NULL,                                    NULL}
-    };
-
-    __android_log_print(ANDROID_LOG_ERROR, "nativeaudio",
-                        "gst_enableSpeakers");
-    GstElement *openslessink;
-    openslessink = gst_bin_get_by_name_recurse_up(GST_BIN(my_pipeline), "openslessink");
-    g_assert(openslessink);
-    g_object_set(G_OBJECT(openslessink), "stream-type", GST_OPENSLES_STREAM_TYPE_MEDIA, NULL);
-}
-
 /* Quit the main loop, remove the native thread and free resources */
 static void gst_native_finalize(JNIEnv *env, jobject thiz) {
     CustomData *data = GET_CUSTOM_DATA (env, thiz, custom_data_field_id);
     if (!data) return;
     GST_DEBUG("Quitting main loop...");
+    __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                        "Quitting main loop...");
     g_main_loop_quit(data->main_loop);
+    __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                        "Waiting for thread to finish...");
     GST_DEBUG("Waiting for thread to finish...");
     pthread_join(gst_app_thread, NULL);
     GST_DEBUG("Deleting GlobalRef for app object at %p", data->app);
+    __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                        "Deleting GlobalRef for app object at ");
     (*env)->DeleteGlobalRef(env, data->app);
     GST_DEBUG("Freeing CustomData at %p", data);
+    __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                        "Freeing CustomData at ");
     g_free(data);
     SET_CUSTOM_DATA (env, thiz, custom_data_field_id, NULL);
     GST_DEBUG("Done finalizing");
+    __android_log_print(ANDROID_LOG_ERROR, "audiostreamer",
+                        "Done finalizing");
 }
 
 /* Set pipeline to PLAYING state */
@@ -302,7 +287,6 @@ static JNINativeMethod native_methods[] = {
         {"nativePlay",              "()V",                                     (void *) gst_native_play},
         {"nativeInitPipeline",      "(Ljava/lang/String;)V",                   (void *) gst_init_pipeline},
         {"nativePause",             "()V",                                     (void *) gst_native_pause},
-        {"nativeEnableSpeakers",    "()V",                                     (void *) gst_enableSpeakers},
         {"nativeClassInit",         "()Z",                                     (void *) gst_native_class_init}
 };
 

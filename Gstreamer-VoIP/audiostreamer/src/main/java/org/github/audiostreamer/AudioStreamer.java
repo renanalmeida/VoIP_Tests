@@ -1,18 +1,9 @@
 package org.github.audiostreamer;
 
-import android.app.Activity;
 import android.content.Context;
-import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import org.freedesktop.gstreamer.GStreamer;
-
 
 public class AudioStreamer {
 
@@ -38,6 +29,8 @@ public class AudioStreamer {
 
     private String mName;
 
+    private String currentPipeline;
+
     public AudioStreamer(Context context, String name) {
         this.mName = name;
         // Initialize GStreamer and warn if it fails
@@ -46,12 +39,13 @@ public class AudioStreamer {
         } catch (Exception e) {
             return;
         }
-    }
+        is_playing_desired = false;
+        nativeInit();
 
+    }
 
     protected void destroy() {
         nativeFinalize();
-
     }
 
     // Called from native code. This sets the content of the TextView from the UI thread.
@@ -73,6 +67,7 @@ public class AudioStreamer {
 
     public void startVOIPStreaming( String pipeline) {
         is_playing_desired = true;
+        this.currentPipeline = pipeline;
         nativeInitPipeline(pipeline);
     }
 
@@ -82,20 +77,19 @@ public class AudioStreamer {
         nativeClassInit();
     }
 
-    public void stopStreaming() {
+    public void stop() {
+        is_playing_desired = false;
         nativePause();
+    }
+
+    public void finalize(){
         nativeFinalize();
     }
 
-    public void enableSpeakers(boolean b) {
-        nativeEnableSpeakers();
-    }
-
-    public void pause() {
-        nativePause();
-    }
-
     public void resume() {
-        nativePlay();
+        if( this.currentPipeline != null){
+            is_playing_desired = true;
+            nativeInitPipeline(this.currentPipeline);
+        }
     }
 }
